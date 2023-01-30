@@ -7,22 +7,31 @@ dev="/dev/$2"
 mkdir /usb -p
 findmnt /usb || sudo mount -t tmpfs tmpfs /usb
 
+uuid=0
 if [[ "$1" == "a" ]]; then
-	for part in $(lsblk -nro name "$dev" | tac)
-	do
-		mkdir "$mnt$part" -p
-		mount "/dev/$part" "$mnt$part" -o "$mntopts"
-		if [[ "$?" -eq 0 ]]; then
-			sudo -u "$DISP_USER" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$DISP_UID/bus" notify-send "Mounted /dev/$part at $mnt$part"
-		else
-			rmdir "$mnt$part"
-		fi
-	done
+    for part in $(lsblk -nro name "$dev" | tac)
+    do
+        uuid=$(blkid -o value -s UUID /dev/$part)
+        if [[ ${#uuid} -gt 8 ]]; then
+            echo "uuid: $uuid"
+            mkdir "$mnt$uuid" -p
+            mount "/dev/$part" "$mnt$uuid" -o "$mntopts"
+            if [[ "$?" -eq 0 ]]; then
+                sudo -u "$DISP_USER" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$DISP_UID/bus" notify-send "Mounted /dev/$part at $mnt$uuid"
+            else
+                rmdir "$mnt$uuid"
+            fi
+        else
+            echo "no uuid passing mounting process"
+        fi
+    done
 else
-	for part in $(ls "$mnt" | grep "^$2")
-	do
-		umount "$mnt$part"
-		rmdir "$mnt$part"
-	done
+    for part in $(ls "$mnt")
+    do
+        echo "============================$part============================"
+        logger "============================$part============================"
+        umount "$mnt$part"
+        rmdir "$mnt$part"
+    done
 fi
 
